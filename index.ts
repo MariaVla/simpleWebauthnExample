@@ -12,6 +12,7 @@ import fs from 'fs';
 import express from 'express';
 import dotenv from 'dotenv';
 import base64url from 'base64url';
+import cors from 'cors';
 
 dotenv.config();
 
@@ -42,11 +43,9 @@ import { LoggedInUser } from './example-server';
 
 const app = express();
 
-const {
-  ENABLE_CONFORMANCE,
-  ENABLE_HTTPS,
-  RP_ID = 'localhost',
-} = process.env;
+app.use(cors());
+
+const { ENABLE_CONFORMANCE, ENABLE_HTTPS, RP_ID = 'localhost' } = process.env;
 
 app.use(express.static('./public/'));
 app.use(express.json());
@@ -58,9 +57,11 @@ app.use(express.json());
  * interact with the Rely Party (a.k.a. "RP", a.k.a. "this server").
  */
 if (ENABLE_CONFORMANCE === 'true') {
-  import('./fido-conformance').then(({ fidoRouteSuffix, fidoConformanceRouter }) => {
-    app.use(fidoRouteSuffix, fidoConformanceRouter);
-  });
+  import('./fido-conformance').then(
+    ({ fidoRouteSuffix, fidoConformanceRouter }) => {
+      app.use(fidoRouteSuffix, fidoConformanceRouter);
+    }
+  );
 }
 
 /**
@@ -124,7 +125,7 @@ app.get('/generate-registration-options', (req, res) => {
      * the browser if it's asked to perform registration when one of these ID's already resides
      * on it.
      */
-    excludeCredentials: devices.map(dev => ({
+    excludeCredentials: devices.map((dev) => ({
       id: dev.credentialID,
       type: 'public-key',
       transports: dev.transports,
@@ -166,10 +167,12 @@ app.post('/verify-registration', async (req, res) => {
     const opts: VerifyRegistrationResponseOpts = {
       credential: body,
       expectedChallenge: `${expectedChallenge}`,
-      expectedOrigin,
+      expectedOrigin: 'http://localhost:3000',
       expectedRPID: rpID,
       requireUserVerification: true,
     };
+    console.log('[DEBUG] expectedOrigin', expectedOrigin);
+
     verification = await verifyRegistrationResponse(opts);
   } catch (error) {
     const _error = error as Error;
@@ -182,7 +185,9 @@ app.post('/verify-registration', async (req, res) => {
   if (verified && registrationInfo) {
     const { credentialPublicKey, credentialID, counter } = registrationInfo;
 
-    const existingDevice = user.devices.find(device => device.credentialID.equals(credentialID));
+    const existingDevice = user.devices.find((device) =>
+      device.credentialID.equals(credentialID)
+    );
 
     if (!existingDevice) {
       /**
@@ -210,7 +215,7 @@ app.get('/generate-authentication-options', (req, res) => {
 
   const opts: GenerateAuthenticationOptionsOpts = {
     timeout: 60000,
-    allowCredentials: user.devices.map(dev => ({
+    allowCredentials: user.devices.map((dev) => ({
       id: dev.credentialID,
       type: 'public-key',
       transports: dev.transports,
@@ -240,6 +245,8 @@ app.post('/verify-authentication', async (req, res) => {
   let dbAuthenticator;
   const bodyCredIDBuffer = base64url.toBuffer(body.rawId);
   // "Query the DB" here for an authenticator matching `credentialID`
+
+  console.log('[DEUBG] user', user);
   for (const dev of user.devices) {
     if (dev.credentialID.equals(bodyCredIDBuffer)) {
       dbAuthenticator = dev;
@@ -247,8 +254,12 @@ app.post('/verify-authentication', async (req, res) => {
     }
   }
 
+  console.log('[DEUBG] dbAuthenticator', dbAuthenticator);
+
   if (!dbAuthenticator) {
-    return res.status(400).send({ error: 'Authenticator is not registered with this site' });
+    return res
+      .status(400)
+      .send({ error: 'Authenticator is not registered with this site' });
   }
 
   let verification: VerifiedAuthenticationResponse;
@@ -256,7 +267,7 @@ app.post('/verify-authentication', async (req, res) => {
     const opts: VerifyAuthenticationResponseOpts = {
       credential: body,
       expectedChallenge: `${expectedChallenge}`,
-      expectedOrigin,
+      expectedOrigin: 'http://localhost:3000',
       expectedRPID: rpID,
       authenticator: dbAuthenticator,
       requireUserVerification: true,
@@ -292,7 +303,7 @@ if (ENABLE_HTTPS) {
         key: fs.readFileSync(`./${rpID}.key`),
         cert: fs.readFileSync(`./${rpID}.crt`),
       },
-      app,
+      app
     )
     .listen(port, host, () => {
       console.log(`🚀 Server ready at ${expectedOrigin} (${host}:${port})`);
