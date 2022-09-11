@@ -8,3 +8,6 @@ You can find an in-depth guide to the Example Project here: https://simplewebaut
 
 - npm install
 - npm start
+
+https://simple-webauthn-example-j4ts56oeb-mariavla.vercel.app/
+https://github.com/MariaVla/simpleWebauthnExample
