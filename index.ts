@@ -167,7 +167,7 @@ app.post('/verify-registration', async (req, res) => {
     const opts: VerifyRegistrationResponseOpts = {
       credential: body,
       expectedChallenge: `${expectedChallenge}`,
-      expectedOrigin: 'http://localhost:3000',
+      expectedOrigin,
       expectedRPID: rpID,
       requireUserVerification: true,
     };
@@ -267,7 +267,7 @@ app.post('/verify-authentication', async (req, res) => {
     const opts: VerifyAuthenticationResponseOpts = {
       credential: body,
       expectedChallenge: `${expectedChallenge}`,
-      expectedOrigin: 'http://localhost:3000',
+      expectedOrigin,
       expectedRPID: rpID,
       authenticator: dbAuthenticator,
       requireUserVerification: true,
